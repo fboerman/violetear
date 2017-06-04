@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-#![allow(unused_variables)]
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 
@@ -13,6 +11,7 @@ use std::io::BufReader;
 use std::collections::HashMap;
 // use std::String::StrSl
 use yaml_rust::{YamlLoader, yaml};
+use std::{thread, time};
 
 
 #[derive(PartialEq)]
@@ -61,6 +60,34 @@ fn findEdge<'a>(edges: &'a mut Vec<edge>, from: &String, to: &String) -> Option<
     None
 }
 
+fn checkNodeInputs(edges: &Vec<edge>, n: &node) -> bool {
+    for e in edges {
+        if e.to == n.name {
+            //edge to our node so check if this edge has enough tokens to sustain firing node
+            //if not than the node cannot fire
+            if e.tokensout > e.currenholding {
+                return false;
+            }
+        }
+    }
+
+    //all edges to this node have enough tokens so node can fire
+    true
+}
+
+fn fireNode(edges: &mut Vec<edge>, n: &node) {
+    for e in edges {
+        if e.from == n.name {
+            //found edge leaving the node, add tokens
+            e.currenholding += e.tokensin;
+        }
+        if e.to == n.name {
+            //foudn edge entering node, subtract tokens
+            e.currenholding -= e.tokensout;
+        }
+    }
+}
+
 fn main() {
 
     //first load and parse the nodes from nodes.yaml config file
@@ -74,7 +101,7 @@ fn main() {
     };
     let mut yamlcontent = String::new();
     match file1.read_to_string(&mut yamlcontent) {
-        Err(why) => panic!("Couldnt read nodes.yaml"),
+        Err(_) => panic!("Couldnt read nodes.yaml"),
         Ok(_) => file1,
     };
 
@@ -103,12 +130,12 @@ fn main() {
 
     //now load and parse the layout from the layout.df file
     let layoutconfigpath = Path::new("layout.df");
-    let mut file2 = match File::open(&layoutconfigpath) {
+    let file2 = match File::open(&layoutconfigpath) {
         Err(why) => panic!("Couldn't open layout.df config file: {}", why.description()),
         Ok(file) => file,        
     };
 
-    let mut bufread = BufReader::new(file2);
+    let bufread = BufReader::new(file2);
     let mut status = section::scanning;
     for line in bufread.lines().filter_map(|result| result.ok()) {
 
@@ -169,9 +196,29 @@ fn main() {
         }
     }
 
-    match nodes.get(&"A") {
-        Some(n) => println!("Found {}",n.name),
-        _ => println!("Found nothing"),
+    println!("Parsed {} edges and {} nodes", edges.len(), nodes.len());
+
+    //parsing done
+    //now iterate through all nodes, check if condition for firing are met
+    //than fire them all
+    let second = time::Duration::from_secs(1);
+    let mut i = 0;
+    loop {
+        let mut firingnodes: Vec<&node> = Vec::new();
+
+        //find all nodes that can currently fire
+        for (_, n) in &nodes {
+            if checkNodeInputs(&edges, &n){
+                firingnodes.push(&n);
+            }
+        }
+        //fire them
+        for n in firingnodes {
+            fireNode(&mut edges, n);
+            println!("{}\t :Fired node {}",i, n.name);
+        }
+        i += 1;
+
+        thread::sleep(second);
     }
-    println!("Parsed {} edges", edges.len());
 }
