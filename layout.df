@@ -1,0 +1,7 @@
+[layout]
+A:2->1:B
+B:1->2:A
+A:1->1:C
+B:1->2:C
+[initial]
+B->A:2
