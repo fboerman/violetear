@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <link rel="shortcut icon" href="{% static "/favicon.ico" %}"/>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+
+    <title>dataflow webgui</title>
+    <!--<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.20.0/vis.min.css">-->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.20.0/vis.min.js"></script>-->
+</head>
+<body>
+    
+    <div id="mynetwork"></div>
+    
+    <script>
+        $(document).ready(function() {
+            window.socket = new WebSocket("ws://127.0.0.1/");
+            window.socket.onmessage = function (e) {
+                console.log(e.data);
+            }
+            window.socket.onclose = function (e) {
+                console.log("connection lost");
+            }
+            //window.socket.send('ping');
+        });
+    </script>
+
+</body>
+</html>

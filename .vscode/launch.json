@@ -5,7 +5,7 @@
             "name": "Debug",
             "type": "gdb",
             "request": "launch",
-            "target": "target/debug/dataflow",
+            "target": "target/debug/violetear",
             "cwd": "${workspaceRoot}"
         }
     ]

@@ -2,6 +2,11 @@
 #![allow(non_camel_case_types)]
 
 extern crate yaml_rust;
+extern crate zmq;
+extern crate serde_json;
+
+#[macro_use]
+extern crate serde_derive;
 
 use std::error::Error;
 use std::fs::File;
@@ -21,7 +26,7 @@ enum section {
     initial,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 struct edge {
     from: String,
     to: String,
@@ -29,7 +34,7 @@ struct edge {
     tokensout: u32,
     currenholding: u32,
 }
-
+#[derive(Default, Serialize, Deserialize)]
 struct node {
     name: String,
     time: u32,
@@ -199,11 +204,19 @@ fn main() {
     println!("Parsed {} edges and {} nodes", edges.len(), nodes.len());
 
     //parsing done
+    //start a zmq server to publish events to
+    let context = zmq::Context::new();
+    let publisher = context.socket(zmq::PUB).unwrap();
+    assert!(publisher.bind("tcp://127.0.0.1:5556").is_ok());
+
     //now iterate through all nodes, check if condition for firing are met
     //than fire them all
     let second = time::Duration::from_secs(1);
     let mut i = 0;
     loop {
+        // let update = format!("{}:time", i);
+        // publisher.send(&update.as_bytes(), 0).unwrap();
+        
         let mut firingnodes: Vec<&node> = Vec::new();
 
         //find all nodes that can currently fire
@@ -216,9 +229,26 @@ fn main() {
         for n in firingnodes {
             fireNode(&mut edges, n);
             println!("{}\t :Fired node {}",i, n.name);
+            // let update = format!("{}:fired:{}",i, n.name);
         }
-        i += 1;
+        
+        let mut package = format!("{{\"time\":{},\"edges\":[", i);
+        for e in &edges {
+            let j = serde_json::to_string(&e).unwrap();
+            package = package + &j + ",";
+        }
+        package.pop();
+        package = package + "],\"nodes\": [";
+        for (_, n) in &nodes {
+            let j = serde_json::to_string(&n).unwrap();
+            package = package + &j + ",";
+        }
 
+        package.pop();
+        package = package + "]}";
+        publisher.send(&package.as_bytes(), 0).unwrap();
+        println!("{}", package);
+        i += 1;
         thread::sleep(second);
     }
 }

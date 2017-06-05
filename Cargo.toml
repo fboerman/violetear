@@ -1,7 +1,11 @@
 [package]
-name = "dataflow"
+name = "violetear"
 version = "0.1.0"
 authors = ["Frank Boerman <f.j.l.boerman@student.tue.nl>"]
 
 [dependencies]
 yaml-rust="*"
+zmq="*"
+serde = "*"
+serde_derive = "*"
+serde_json = "*"
