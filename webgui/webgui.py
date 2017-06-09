@@ -77,8 +77,10 @@ if __name__ == "__main__":
         broadcast = socket.recv_json()
         graph = "digraph G{"
         for edge in broadcast["edges"]:
-            label = '    i:{}, o:{}, c:{}'.format(edge["tokensin"], edge["tokensout"], edge["currenholding"])
-            graph += '{}->{}[label="{}"];'.format(edge["from"], edge["to"], label)
+            label = '    i:{}, o:{}, c:{}'.format(edge["tokensin"], edge["tokensout"], edge["currentholding"])
+            graph += '"{}"->"{}"[label="{}"];'.format(edge["from"], edge["to"], label)
+        for node in broadcast["nodes"]:
+            graph = graph.replace('"{}"'.format(node["name"]), '"{}:{}"'.format(node["name"], node["firing"]))
         graph += "}"
         for c in connections:
             c.SendClient(graph)

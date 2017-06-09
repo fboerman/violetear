@@ -32,11 +32,12 @@ struct edge {
     to: String,
     tokensin: u32,
     tokensout: u32,
-    currenholding: u32,
+    currentholding: u32,
 }
 #[derive(Default, Serialize, Deserialize)]
 struct node {
     name: String,
+    firing: u32,
     time: u32,
 }
 
@@ -66,11 +67,14 @@ fn findEdge<'a>(edges: &'a mut Vec<edge>, from: &String, to: &String) -> Option<
 }
 
 fn checkNodeInputs(edges: &Vec<edge>, n: &node) -> bool {
+    if n.firing > 0 {
+        return false;
+    }
     for e in edges {
         if e.to == n.name {
             //edge to our node so check if this edge has enough tokens to sustain firing node
             //if not than the node cannot fire
-            if e.tokensout > e.currenholding {
+            if e.tokensout > e.currentholding {
                 return false;
             }
         }
@@ -80,15 +84,27 @@ fn checkNodeInputs(edges: &Vec<edge>, n: &node) -> bool {
     true
 }
 
-fn fireNode(edges: &mut Vec<edge>, n: &node) {
+fn fireNode(edges: &mut Vec<edge>, n: &mut node) {
+    if n.firing > 0 {
+        return;
+    }
     for e in edges {
         if e.from == n.name {
             //found edge leaving the node, add tokens
-            e.currenholding += e.tokensin;
+            e.currentholding += e.tokensin;
         }
         if e.to == n.name {
             //foudn edge entering node, subtract tokens
-            e.currenholding -= e.tokensout;
+            e.currentholding -= e.tokensout;
+        }
+    }
+    n.firing = n.time;
+}
+
+fn tickNodes(nodes: &mut HashMap<&str, node>, timestep: u32) {
+    for (_, n) in nodes {
+        if n.firing > 0 {
+            n.firing -= timestep;
         }
     }
 }
@@ -115,7 +131,7 @@ fn main() {
 
     //holding all the objects
     let mut edges: Vec<edge> = Vec::new();
-    let mut nodes = HashMap::new();
+    let mut nodes: HashMap<&str, node> = HashMap::new();
 
     match *yamlnodes {
         yaml::Yaml::Hash(ref h) => {
@@ -123,6 +139,7 @@ fn main() {
                 let n = node {
                     name: nme.as_str().unwrap().to_string().clone(),
                     time: settings["time"].as_i64().unwrap() as u32,
+                    firing: 0,
                 };
                 nodes.insert(nme.as_str().unwrap(), n);
             }
@@ -176,7 +193,7 @@ fn main() {
                 };
                 let totuple = scanUntilDelimeter(&line, ':', outtokentuple.0);
                 E.to = totuple.1;
-                E.currenholding = 0;
+                E.currentholding = 0;
                 edges.push(E);
             }
             section::initial => {
@@ -189,7 +206,7 @@ fn main() {
                     None => panic!("Parser error: non existing edge in  initial"),
                 };
                 tuple = scanUntilDelimeter(&line, ':', tuple.0);
-                edg.currenholding = match tuple.1.parse() {
+                edg.currentholding = match tuple.1.parse() {
                     Ok(num) => num,
                     Err(_) => panic!("Parser error: non integer value for initial tokensize"),
                 };
@@ -211,26 +228,33 @@ fn main() {
 
     //now iterate through all nodes, check if condition for firing are met
     //than fire them all
-    let second = time::Duration::from_secs(1);
+    let second = time::Duration::from_secs(2);
     let mut i = 0;
     loop {
         // let update = format!("{}:time", i);
         // publisher.send(&update.as_bytes(), 0).unwrap();
         println!("{}", i);
-        let mut firingnodes: Vec<&node> = Vec::new();
+        let mut firingnodes: Vec<String> = Vec::new();
 
         //find all nodes that can currently fire
         for (_, n) in &nodes {
             if checkNodeInputs(&edges, &n){
-                firingnodes.push(&n);
+                firingnodes.push(n.name.clone());
             }
         }
+
         //fire them
-        for n in firingnodes {
-            fireNode(&mut edges, n);
-            //println!("{}\t :Fired node {}",i, n.name);
+        for nname in firingnodes {
+            let mut n = match nodes.get_mut(nname.as_str()) {
+                Some(n) => n,
+                _ => panic!("This should not happen"),
+            };
+            fireNode(&mut edges, &mut n);
+            println!("{}\t :Fired node {}",i, n.name);
             // let update = format!("{}:fired:{}",i, n.name);
         }
+        //tick all firing nodes
+        tickNodes(&mut nodes, 1);
         
         let mut package = format!("{{\"time\":{},\"edges\":[", i);
         for e in &edges {
@@ -247,7 +271,7 @@ fn main() {
         package.pop();
         package = package + "]}";
         publisher.send(&package.as_bytes(), 0).unwrap();
-        //println!("{}", package);
+        println!("{}", package);
         i += 1;
         thread::sleep(second);
     }
