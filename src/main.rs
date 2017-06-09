@@ -216,7 +216,7 @@ fn main() {
     loop {
         // let update = format!("{}:time", i);
         // publisher.send(&update.as_bytes(), 0).unwrap();
-        
+        println!("{}", i);
         let mut firingnodes: Vec<&node> = Vec::new();
 
         //find all nodes that can currently fire
@@ -228,7 +228,7 @@ fn main() {
         //fire them
         for n in firingnodes {
             fireNode(&mut edges, n);
-            println!("{}\t :Fired node {}",i, n.name);
+            //println!("{}\t :Fired node {}",i, n.name);
             // let update = format!("{}:fired:{}",i, n.name);
         }
         
@@ -247,7 +247,7 @@ fn main() {
         package.pop();
         package = package + "]}";
         publisher.send(&package.as_bytes(), 0).unwrap();
-        println!("{}", package);
+        //println!("{}", package);
         i += 1;
         thread::sleep(second);
     }

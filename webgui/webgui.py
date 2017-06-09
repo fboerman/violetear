@@ -67,16 +67,18 @@ if __name__ == "__main__":
 
     socket.connect("tcp://127.0.0.1:5556")
     socket.setsockopt_string(zmq.SUBSCRIBE, "")
-    
-    server = ThreadedTCPServer(("127.0.0.1", 80), ThreadedServerHandler)
+
+    server = ThreadedTCPServer(("127.0.0.1", 8080), ThreadedServerHandler)
     server_thread = threading.Thread(target=server.serve_forever)
     server_thread.daemon = True
     server_thread.start()
-
-
+   
     while True:
         broadcast = socket.recv_json()
-        print(broadcast)
+        graph = "digraph G{"
+        for edge in broadcast["edges"]:
+            label = '    i:{}, o:{}, c:{}'.format(edge["tokensin"], edge["tokensout"], edge["currenholding"])
+            graph += '{}->{}[label="{}"];'.format(edge["from"], edge["to"], label)
+        graph += "}"
         for c in connections:
-            c.SendClient(json.dumps(broadcast))
-        
+            c.SendClient(graph)
