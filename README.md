@@ -15,6 +15,9 @@ Format for layout is: ```<nodename_from>:<intokens>-><outtokens>:<nodename_to>``
 Format for the initial is:
 ```<nodename_from>-><nodename_to>:<initialtokens>```
 
+### Name Origin
+[https://en.wikipedia.org/wiki/Violetear](https://en.wikipedia.org/wiki/Violetear)
+
 
 ## Usage
 ### Requirements
