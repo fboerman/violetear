@@ -10,7 +10,7 @@ connections = []
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass
-
+#simple implemenation of websocket server
 class ThreadedServerHandler(socketserver.BaseRequestHandler):
     def handle(self):
         global connections
@@ -61,7 +61,7 @@ class ThreadedServerHandler(socketserver.BaseRequestHandler):
         self.request.send(bytes(handshake, "utf-8"))
 
 if __name__ == "__main__":
-
+    #connect to the zmq socket and start a websocket server
     context = zmq.Context()
     socket = context.socket(zmq.SUB)
 
@@ -74,7 +74,9 @@ if __name__ == "__main__":
     server_thread.start()
    
     while True:
+        #receive the json package
         broadcast = socket.recv_json()
+        #convert the dictionary to a graphviz dot format
         graph = "digraph G{"
         for edge in broadcast["edges"]:
             label = '    i:{}, o:{}, c:{}'.format(edge["tokensin"], edge["tokensout"], edge["currentholding"])
@@ -82,5 +84,6 @@ if __name__ == "__main__":
         for node in broadcast["nodes"]:
             graph = graph.replace('"{}"'.format(node["name"]), '"{}:{}"'.format(node["name"], node["firing"]))
         graph += "}"
+        #and send it to all connected clients
         for c in connections:
             c.SendClient(graph)

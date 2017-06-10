@@ -6,7 +6,7 @@ import socketserver
 import hashlib
 import base64
 
-
+#helper functions for parsing and creating websocket frames
 class GFunc():
     def __init__(self):
         pass

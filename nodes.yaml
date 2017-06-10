@@ -1,15 +1,6 @@
 A:
   time: 10
-  startHook: null
-  endHook: null
-  socket: null
 B:
   time: 1
-  startHook: null
-  endHook: null
-  socket: null
 C:
   time: 1
-  startHook: null
-  endHook: null
-  socket: null
