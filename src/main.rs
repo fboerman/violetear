@@ -228,12 +228,14 @@ fn main() {
 
     //now iterate through all nodes, check if condition for firing are met
     //than fire them all
-    let second = time::Duration::from_secs(2);
+    let second = time::Duration::from_secs(1);
     let mut i = 0;
     loop {
         // let update = format!("{}:time", i);
         // publisher.send(&update.as_bytes(), 0).unwrap();
         println!("{}", i);
+        //tick all firing nodes
+        tickNodes(&mut nodes, 1);
         let mut firingnodes: Vec<String> = Vec::new();
 
         //find all nodes that can currently fire
@@ -253,8 +255,6 @@ fn main() {
             println!("{}\t :Fired node {}",i, n.name);
             // let update = format!("{}:fired:{}",i, n.name);
         }
-        //tick all firing nodes
-        tickNodes(&mut nodes, 1);
         
         let mut package = format!("{{\"time\":{},\"edges\":[", i);
         for e in &edges {
@@ -271,7 +271,7 @@ fn main() {
         package.pop();
         package = package + "]}";
         publisher.send(&package.as_bytes(), 0).unwrap();
-        println!("{}", package);
+        // println!("{}", package);
         i += 1;
         thread::sleep(second);
     }

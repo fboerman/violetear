@@ -7,40 +7,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>dataflow webgui</title>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-    <script type="text/javascript" src="./js/workered-jsviz.js?v=2"></script>
-    <script type="text/javascript" src="./js/progress-view.js?v=2"></script>
-    <script type="text/javascript" src="./js/progress-model.js?v=2"></script>
-    <script type="text/javascript" src="./js/worker-stopgo.js?v=2"></script>
-    <script type="text/javascript" src="./js/global-util.js?v=2"></script>
-    <script type="text/javascript" src="./js/jsviz.js?v=2"></script>
-    <script type="text/javascript" src="./js/errorsink.js?v=2"></script>
-    <script type="text/javascript" src="./js/jsviz-ui.js?v=2"></script>
-    <script type="text/javascript" src="./js/graph-model.js?v=2"></script>
-    <script type="text/javascript" src="./js/curve-tween.js?v=2"></script>
-    <script type="text/javascript" src="./js/difftype.js?v=2"></script>	
+
+    <script type="text/javascript" src="./js/viz-lite.js"></script>
 </head>
 
 <body>
 <center>
-    <div class="workflow" style="width:50%;"></div>
-    		<svg id="graph-svg" style="outline: none;" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="mainGraphContainer" /></svg>
-
+     <div id="graph"></div>
 </center>
     <script>
         $(document).ready(function () {
             window.socket = new WebSocket("ws://127.0.0.1:8080/");
             window.socket.onmessage = function (e) {
-                console.log(e.data);
-                window.dotdata = e.data;
-                window.startDot();
+                graphviz = Viz(e.data);
+
+                $("#graph").html(graphviz);
             }
             window.socket.onclose = function (e) {
                 console.log("connection lost");
             }
-            window.dotdata = "digraph testgraph { A->B }";
-            w_launch();
-            window.startDot();
- 
         });
     </script>
 </body>
