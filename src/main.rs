@@ -14,11 +14,11 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::io::BufReader;
 use std::collections::HashMap;
-// use std::String::StrSl
+
 use yaml_rust::{YamlLoader, yaml};
 use std::{thread, time};
 
-
+// enum to keep track in what state the parser is
 #[derive(PartialEq)]
 enum section {
     scanning,
@@ -26,6 +26,7 @@ enum section {
     initial,
 }
 
+// an edge in the dataflow diagram
 #[derive(Default, Serialize, Deserialize)]
 struct edge {
     from: String,
@@ -34,6 +35,10 @@ struct edge {
     tokensout: u32,
     currentholding: u32,
 }
+
+// a node in the dataflow diagram
+// firing is the ammount of ticks that the node will be left firing
+// time is the ammount of ticks a firing costs
 #[derive(Default, Serialize, Deserialize)]
 struct node {
     name: String,
@@ -41,6 +46,7 @@ struct node {
     time: u32,
 }
 
+// scans a given string until a delimeter is reached, returns the index after the delimter and the produced string
 fn scanUntilDelimeter(line: &String, delimeter: char, startindex: u32) -> (u32, String) {
     let mut s = String::new();
     let chars: Vec<_> = line.trim().chars().collect();
@@ -56,6 +62,7 @@ fn scanUntilDelimeter(line: &String, delimeter: char, startindex: u32) -> (u32, 
     (endindex, s)
 }
 
+// tries to find an edge with given properties
 fn findEdge<'a>(edges: &'a mut Vec<edge>, from: &String, to: &String) -> Option<&'a mut edge> {
     for e in edges {
         if e.from == *from && e.to == *to {
@@ -66,8 +73,10 @@ fn findEdge<'a>(edges: &'a mut Vec<edge>, from: &String, to: &String) -> Option<
     None
 }
 
+// checks if all input edges of a node are satisfied in terms of tokens. returns true if node can fire, false otherwise
 fn checkNodeInputs(edges: &Vec<edge>, n: &node) -> bool {
     if n.firing > 0 {
+        //if node is still firing than it can not be fired again
         return false;
     }
     for e in edges {
@@ -84,15 +93,17 @@ fn checkNodeInputs(edges: &Vec<edge>, n: &node) -> bool {
     true
 }
 
+// trigger firing of given node, it updates all its input edges
 fn fireNode(edges: &mut Vec<edge>, n: &mut node) {
     if n.firing > 0 {
+        //if node is already firing dont do anything
         return;
     }
     for e in edges {
-        if e.from == n.name {
-            //found edge leaving the node, add tokens
-            e.currentholding += e.tokensin;
-        }
+        // if e.from == n.name {
+        //     //found edge leaving the node, add tokens
+        //     e.currentholding += e.tokensin;
+        // }
         if e.to == n.name {
             //foudn edge entering node, subtract tokens
             e.currentholding -= e.tokensout;
@@ -101,10 +112,20 @@ fn fireNode(edges: &mut Vec<edge>, n: &mut node) {
     n.firing = n.time;
 }
 
-fn tickNodes(nodes: &mut HashMap<&str, node>, timestep: u32) {
+fn tickNodes(nodes: &mut HashMap<&str, node>, edges: &mut Vec<edge>, timestep: u32) {
     for (_, n) in nodes {
         if n.firing > 0 {
+            //if node is in firingmode, decrease its firetime
             n.firing -= timestep;
+            if n.firing == 0 {
+                //node is done with firing, update output edges
+                for e in edges.iter_mut() {
+                    if e.from == n.name {
+                        //output node found, update its tokens
+                        e.currentholding += e.tokensin;
+                    }
+                }
+            }
         }
     }
 }
@@ -112,6 +133,7 @@ fn tickNodes(nodes: &mut HashMap<&str, node>, timestep: u32) {
 fn main() {
 
     //first load and parse the nodes from nodes.yaml config file
+    //use the yaml crate for it
     let yamlconfigpath = Path::new("nodes.yaml");
     let mut file1 = match File::open(&yamlconfigpath) {
         Err(why) => {
@@ -133,12 +155,13 @@ fn main() {
     let mut edges: Vec<edge> = Vec::new();
     let mut nodes: HashMap<&str, node> = HashMap::new();
 
+    //iterate through the hashmap in the yamlfile and create node objects
     match *yamlnodes {
         yaml::Yaml::Hash(ref h) => {
             for (nme, settings) in h {
                 let n = node {
                     name: nme.as_str().unwrap().to_string().clone(),
-                    time: settings["time"].as_i64().unwrap() as u32,
+                    time: settings["time"].as_i64().unwrap() as u32, //yaml library doesnt support immideate conversion to u32
                     firing: 0,
                 };
                 nodes.insert(nme.as_str().unwrap(), n);
@@ -156,11 +179,11 @@ fn main() {
         Err(why) => panic!("Couldn't open layout.df config file: {}", why.description()),
         Ok(file) => file,        
     };
-
+    //wrap reader in buffer
     let bufread = BufReader::new(file2);
     let mut status = section::scanning;
     for line in bufread.lines().filter_map(|result| result.ok()) {
-
+        //scan for header
         match line.trim() {
             "[layout]" => {
                 status = section::layout;
@@ -173,11 +196,15 @@ fn main() {
             _ => {}
         }
         if status == section::scanning {
+            //we have not yet begun on a section, keep looking
             continue;
         }
 
         match status {
             section::layout => {
+                //we are in the layout section
+                //parse the following layout: <nodename>:<intokens>-><outtokens>:<nodename>
+                //and push it in the edges vector
                 let mut E = edge { ..Default::default() };
                 let fromtuple = scanUntilDelimeter(&line, ':', 0);
                 E.from = fromtuple.1;
@@ -197,6 +224,9 @@ fn main() {
                 edges.push(E);
             }
             section::initial => {
+                //we are in the initial section
+                //parse the follow format: <nodename>-><nodename>:initialtokens
+                //create the node objects and put them in the hashmap by name
                 let mut tuple = scanUntilDelimeter(&line, '-', 0);
                 let from = tuple.1;
                 tuple = scanUntilDelimeter(&line, ':', tuple.0 + 1);
@@ -231,47 +261,46 @@ fn main() {
     let second = time::Duration::from_secs(1);
     let mut i = 0;
     loop {
-        // let update = format!("{}:time", i);
-        // publisher.send(&update.as_bytes(), 0).unwrap();
         println!("{}", i);
         //tick all firing nodes
-        tickNodes(&mut nodes, 1);
-        let mut firingnodes: Vec<String> = Vec::new();
+        tickNodes(&mut nodes, &mut edges, 1);
 
         //find all nodes that can currently fire
+        let mut firingnodes: Vec<String> = Vec::new();
         for (_, n) in &nodes {
-            if checkNodeInputs(&edges, &n){
+            if checkNodeInputs(&edges, &n) {
                 firingnodes.push(n.name.clone());
             }
         }
 
-        //fire them
+        //fire all nodes found in the previous step
+        //this two step system is necesarry to prevent checking with a half updated system
+        //another solution would be double buffering
         for nname in firingnodes {
             let mut n = match nodes.get_mut(nname.as_str()) {
                 Some(n) => n,
                 _ => panic!("This should not happen"),
             };
             fireNode(&mut edges, &mut n);
-            println!("{}\t :Fired node {}",i, n.name);
-            // let update = format!("{}:fired:{}",i, n.name);
+            println!("{}\t :Fired node {}", i, n.name);
         }
-        
+        //build a json dictionary with all nodes and edges
         let mut package = format!("{{\"time\":{},\"edges\":[", i);
         for e in &edges {
             let j = serde_json::to_string(&e).unwrap();
             package = package + &j + ",";
         }
-        package.pop();
+        package.pop(); //pop the last , because we are done with edges
         package = package + "],\"nodes\": [";
         for (_, n) in &nodes {
             let j = serde_json::to_string(&n).unwrap();
             package = package + &j + ",";
         }
 
-        package.pop();
+        package.pop(); //pop the last , because we are done with nodes
         package = package + "]}";
+        //publish the json dictionary on our zmq socket
         publisher.send(&package.as_bytes(), 0).unwrap();
-        // println!("{}", package);
         i += 1;
         thread::sleep(second);
     }
